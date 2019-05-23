@@ -16,6 +16,8 @@ dvdfolder="(none)"
 
 from Tkinter import *
 
+# 5/21/19 remove pack because it is not compatible with grid and gave an error in later Python versions
+
 # Nick Agro 9/17/2015
 # This is a very quick and dirty controller for the Nikon D40 Camera. I wanted a simple
 # tethering controller for my camera and decided to throw together a Python script.
@@ -75,6 +77,12 @@ label_shutterspeed.grid(row=12, column=0)
 label_shutterspeed_val = Label( master, text="xx",  bg="SkyBlue1" )
 label_shutterspeed_val.grid(row=12, column=1)
 
+label_iso = Label( master, text="iso:" )
+label_iso.grid(row=13, column=0)
+
+label_iso_val = Label( master, text="xx",  bg="SkyBlue1" )
+label_iso_val.grid(row=13, column=1)
+
 CheckVar1 = IntVar()
 CheckVar2 = IntVar()
 C1 = Checkbutton(master, text = "Multi capture:", variable = CheckVar1, \
@@ -85,7 +93,7 @@ C1.grid(row=2, column=0)
 C2 = Checkbutton(master, text = "Show photo on capture:", variable = CheckVar2, \
                  onvalue = 1, offvalue = 0, height=1, \
                  width = 25)
-C2.grid(row=14, column=1)
+C2.grid(row=15, column=1)
 
 
 label2 = Label(master, text="Num of photos", relief=FLAT )
@@ -166,7 +174,24 @@ def callback2():
 		print line[9:]
 		label_shutterspeed_val.configure(text=line[9:])
 		shutter_speed_current = float(line[9:len(line)-2])
-		print shutter_speed_current
+		#print shutter_speed_current
+
+		# get iso
+		time.sleep(0.5)
+		cmd1='gphoto2 --get-config /main/imgsettings/iso > gphoto2-auto-detect-iso-results'
+		subprocess.Popen(cmd1, shell=True)
+		time.sleep(1)
+		fo = open("gphoto2-auto-detect-iso-results", "rw+")
+		line = fo.readline()
+		#print "Read Line: %s" % (line)
+		line = fo.readline()
+		#print "Read Line: %s" % (line)
+		line = fo.readline()
+		#print "Read Line: %s" % (line)
+		#print line.find("Current")
+		print line[9:]
+		label_iso_val.configure(text=line[9:])
+		#shutter_speed_current = float(line[9:len(line)-2])
 
 	else: 
 		print "no camera found"
@@ -235,17 +260,25 @@ def callback6():
 	print xcmd
 	subprocess.Popen(xcmd, shell=True)
 
+def callback7():
+	print "Set iso..."
+	xcmd="gphoto2 --set-config /main/imgsettings/iso=" + iso.get()
+	label_iso_val.configure(text=iso.get())
+	print xcmd
+	subprocess.Popen(xcmd, shell=True)
 
 c = Button(master, text="Connect to camera", command=callback2, bg="SkyBlue2")
 e = Button(master, text="Capture photo(s)", command=callback4, bg="SkyBlue2")
 f = Button(master, text="set", command=callback5, bg="SkyBlue2")
 g = Button(master, text="set", command=callback6, bg="SkyBlue2")
+h = Button(master, text="set", command=callback7, bg="SkyBlue2")
 
 
 c.grid(row=1, column =0)
 e.grid(row=1, column =2)
 f.grid(row=11, column =3)
 g.grid(row=12, column =3)
+h.grid(row=13, column =3)
 
 
 def sel():
@@ -283,7 +316,7 @@ fstops = Spinbox(master, values=(
 'f/20',
 'f/22'
 ))
-fstops.pack()
+#fstops.pack()
 fstops.grid(row=11, column=2)
 print "\ninitial value of fstops.get() =",fstops.get()
 
@@ -341,9 +374,21 @@ shutterspeed = Spinbox(master, values=(
 '0.0003s',
 '429496.7295s'
 ))
-shutterspeed.pack()
+#shutterspeed.pack()
 shutterspeed.grid(row=12, column=2)
 print "\ninitial value of fstops.get() =",fstops.get()
+
+iso = Spinbox(master, values=(
+'3200',
+'1600',
+'800',
+'400',
+'200'
+))
+#iso.pack()
+iso.grid(row=13, column=2)
+print "\ninitial value of iso.get() =",iso.get()
+
 
 mainloop()
 
