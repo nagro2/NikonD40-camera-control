@@ -1,23 +1,4 @@
 
-import gtk
-import os
-import subprocess
-import time
-import gobject
-
-global sourceVideo
-global destinationVideo
-global dvdfolder
-
-global shutter_speed_current
-
-dvdfolder="(none)"
-
-
-from Tkinter import *
-
-# 5/21/19 remove pack because it is not compatible with grid and gave an error in later Python versions
-
 # Nick Agro 9/17/2015
 # This is a very quick and dirty controller for the Nikon D40 Camera. I wanted a simple
 # tethering controller for my camera and decided to throw together a Python script.
@@ -27,7 +8,15 @@ from Tkinter import *
 # are stored in this script. In future versions I may pull these values directly from the
 # camera.
 
+# 5/22/19 add Camera_Settings class, begin refactoring
 
+import gtk
+import os
+import subprocess
+import time
+import gobject
+
+from Tkinter import *
 master = Tk()
 master.title("D40 Tether Quick and Dirty v1")
 master.minsize(width=600, height=240)
@@ -39,9 +28,6 @@ def menu_about():
 	c1.title("About: D40 Tether")
 	c1.transient(master)
 	Label(c1, text="\n     D40 Tether Quick and Dirty ver 1.0.0 9/16/2015      \n\n Copyright 2015 Nicholas Agro.\n").grid()
-
-
-
 
 menubar = Menu(master)
 
@@ -59,67 +45,16 @@ master.config(menu=menubar)
 
 
 
+class Camera_Settings:
+	shutter_speed = -1
+	aperture = -1
+	iso = -1
+cam = Camera_Settings()
 
-
-
-labelt = Label( master, text="D40 Tether QD", font=("courier", 12, "bold"), fg="salmon4")
-labelt.grid(row=0, column=1)
-
-label_apeture = Label( master, text="Apeture:" )
-label_apeture.grid(row=11, column=0)
-
-label_apeture_val = Label( master, text="xx",  bg="SkyBlue1" )
-label_apeture_val.grid(row=11, column=1)
-
-label_shutterspeed = Label( master, text="Shutter speed:" )
-label_shutterspeed.grid(row=12, column=0)
-
-label_shutterspeed_val = Label( master, text="xx",  bg="SkyBlue1" )
-label_shutterspeed_val.grid(row=12, column=1)
-
-label_iso = Label( master, text="iso:" )
-label_iso.grid(row=13, column=0)
-
-label_iso_val = Label( master, text="xx",  bg="SkyBlue1" )
-label_iso_val.grid(row=13, column=1)
-
-CheckVar1 = IntVar()
-CheckVar2 = IntVar()
-C1 = Checkbutton(master, text = "Multi capture:", variable = CheckVar1, \
-                 onvalue = 1, offvalue = 0, height=1, \
-                 width = 10)
-C1.grid(row=2, column=0)
-
-C2 = Checkbutton(master, text = "Show photo on capture:", variable = CheckVar2, \
-                 onvalue = 1, offvalue = 0, height=1, \
-                 width = 25)
-C2.grid(row=15, column=1)
-
-
-label2 = Label(master, text="Num of photos", relief=FLAT )
-label2.grid(row=3, column=0)
-
-var = StringVar(master)
-var.set("3")
-frames = Spinbox(master, from_=2, to=99, width=3, textvariable=var)
-frames.grid(row=3, column=1)
-print "\ninitial value of frames.get() =",frames.get()
-
-label5 = Label(master, text="Interval", relief=FLAT )
-label5.grid(row=3, column=2)
-
-interval = Spinbox(master, from_=1, to=99, width=3)
-interval.grid(row=3, column=3)
-
-print "initial value of interval.get() =", interval.get()
-
-
-
-def callback2():
+def callback_connect_to_camera():
 	print "Scan for camera..."
 	global xcmd
 	global cmd1, cmd2
-	global shutter_speed_current
 
 	cmd1='gvfs-mount -s gphoto2'
 	#print cmd1
@@ -173,8 +108,8 @@ def callback2():
 		#print line.find("Current")
 		print line[9:]
 		label_shutterspeed_val.configure(text=line[9:])
-		shutter_speed_current = float(line[9:len(line)-2])
-		#print shutter_speed_current
+		cam.shutter_speed = float(line[9:len(line)-2])
+		#print cam.shutter_speed
 
 		# get iso
 		time.sleep(0.5)
@@ -191,7 +126,7 @@ def callback2():
 		#print line.find("Current")
 		print line[9:]
 		label_iso_val.configure(text=line[9:])
-		#shutter_speed_current = float(line[9:len(line)-2])
+		#cam.shutter_speed = float(line[9:len(line)-2])
 
 	else: 
 		print "no camera found"
@@ -201,13 +136,7 @@ def callback2():
 	fo.close()
 
 
-
-
-
-
-def callback4():
-	global shutter_speed_current
-
+def callback_capture_photos():
 	print "Start capturing..."
 
 	current_time = (time.strftime("%Y-%m-%d--%H-%M-%S"))
@@ -217,61 +146,116 @@ def callback4():
 	
 	#xcmd = "gphoto2 --capture-image-and-download --filename 'image-" + current_time + ".jpg'"
 
-	if CheckVar1.get() == 1: # capture multi is selected
+	if multicapture.get() == 1: # capture multi is selected
 		xcmd = "gphoto2 --capture-image-and-download --filename 'image-%y%m%d-%H%M%S.jpg'"
 		xcmd = xcmd + " -F" + frames.get()
 		xcmd = xcmd + " -I" + interval.get() 
 		print xcmd
 		subprocess.Popen(xcmd, shell=True)
 
-	if CheckVar1.get() == 0: # Capture multi not selected
+	if multicapture.get() == 0: # Capture multi not selected
 		xcmd = "gphoto2 --capture-image-and-download --filename 'image-" + current_time + ".jpg'"
 		print xcmd
 		subprocess.Popen(xcmd, shell=True)
-		if CheckVar2.get() == 1: # show photo is selected
+		if showphoto.get() == 1: # show photo is selected
 			xcmd="eog image-" + current_time + ".jpg"
 			# note 5 seconds + shutter speed works ok for iso 800 and low shutter speeds
 			# but for high iso and some long shutter speeds combined with lower iso, the camera
 			# takes much longer than 5 seconds to process frames. Unfortunately the camera's processing
 			# time varies with iso and shutter speed. So it is best not to use auto display at higher isos and shutter speeds.
-			print "waiting " + str(5 + shutter_speed_current) + " seconds before displaying photo"
-			time.sleep(5 + shutter_speed_current)
+			print "waiting " + str(5 + cam.shutter_speed) + " seconds before displaying photo"
+			time.sleep(5 + cam.shutter_speed)
 			print xcmd
 			subprocess.Popen(xcmd, shell=True)
 
 	
 
 
-def callback5():
+def callback_set_aperture():
 	print "Set apeture..."
 	xcmd="gphoto2 --set-config /main/capturesettings/f-number=" + fstops.get()
 	label_apeture_val.configure(text=fstops.get())
 	print xcmd
 	subprocess.Popen(xcmd, shell=True)
 
-def callback6():
-	global shutter_speed_current
+def callback_set_shutter_speed():
 	print "Set shutter speed..."
 	xcmd="gphoto2 --set-config /main/capturesettings/shutterspeed=" + shutterspeed.get()
 	label_shutterspeed_val.configure(text=shutterspeed.get())
-	shutter_speed_current = float(shutterspeed.get()[:len(shutterspeed.get())-2])
-	print "new shutter_speed_current= "
-	print shutter_speed_current
+	cam.shutter_speed = float(shutterspeed.get()[:len(shutterspeed.get())-2])
+	print "new cam.shutter_speed= "
+	print cam.shutter_speed
 	print xcmd
 	subprocess.Popen(xcmd, shell=True)
 
-def callback7():
+def callback_set_iso():
 	print "Set iso..."
 	xcmd="gphoto2 --set-config /main/imgsettings/iso=" + iso.get()
 	label_iso_val.configure(text=iso.get())
 	print xcmd
 	subprocess.Popen(xcmd, shell=True)
 
-c = Button(master, text="Connect to camera", command=callback2, bg="SkyBlue2")
-e = Button(master, text="Capture photo(s)", command=callback4, bg="SkyBlue2")
-f = Button(master, text="set", command=callback5, bg="SkyBlue2")
-g = Button(master, text="set", command=callback6, bg="SkyBlue2")
-h = Button(master, text="set", command=callback7, bg="SkyBlue2")
+
+
+
+#set up main window gui
+labelt = Label( master, text="D40 Tether QD", font=("courier", 12, "bold"), fg="salmon4")
+labelt.grid(row=0, column=1)
+
+label_apeture = Label( master, text="Apeture:" )
+label_apeture.grid(row=11, column=0)
+
+label_apeture_val = Label( master, text="xx",  bg="SkyBlue1" )
+label_apeture_val.grid(row=11, column=1)
+
+label_shutterspeed = Label( master, text="Shutter speed:" )
+label_shutterspeed.grid(row=12, column=0)
+
+label_shutterspeed_val = Label( master, text="xx",  bg="SkyBlue1" )
+label_shutterspeed_val.grid(row=12, column=1)
+
+label_iso = Label( master, text="iso:" )
+label_iso.grid(row=13, column=0)
+
+label_iso_val = Label( master, text="xx",  bg="SkyBlue1" )
+label_iso_val.grid(row=13, column=1)
+
+multicapture = IntVar()
+showphoto = IntVar()
+C1 = Checkbutton(master, text = "Multi capture:", variable = multicapture, \
+                 onvalue = 1, offvalue = 0, height=1, \
+                 width = 10)
+C1.grid(row=2, column=0) # was 0
+
+C2 = Checkbutton(master, text = "Show photo on capture:", variable = showphoto, \
+                 onvalue = 1, offvalue = 0, height=1, \
+                 width = 25)
+C2.grid(row=15, column=1)
+
+
+label2 = Label(master, text="Num of photos", relief=FLAT )
+label2.grid(row=3, column=0)
+
+var = StringVar(master)
+var.set("3")
+frames = Spinbox(master, from_=2, to=99, width=3, textvariable=var)
+frames.grid(row=3, column=1)
+print "\ninitial value of frames.get() =",frames.get()
+
+label5 = Label(master, text="Interval", relief=FLAT )
+label5.grid(row=3, column=2)
+
+interval = Spinbox(master, from_=1, to=99, width=3)
+interval.grid(row=3, column=3)
+
+print "initial value of interval.get() =", interval.get()
+
+
+c = Button(master, text="Connect to camera", command=callback_connect_to_camera, bg="SkyBlue2")
+e = Button(master, text="Capture photo(s)", command=callback_capture_photos, bg="SkyBlue2")
+f = Button(master, text="set", command=callback_set_aperture, bg="SkyBlue2")
+g = Button(master, text="set", command=callback_set_shutter_speed, bg="SkyBlue2")
+h = Button(master, text="set", command=callback_set_iso, bg="SkyBlue2")
 
 
 c.grid(row=1, column =0)
@@ -279,16 +263,6 @@ e.grid(row=1, column =2)
 f.grid(row=11, column =3)
 g.grid(row=12, column =3)
 h.grid(row=13, column =3)
-
-
-def sel():
-	global dvdfolder
-	selection = "Encode from " + str(var.get())
-	print "Selection ", selection
-	if var.get() == 1:
-		label4.configure(text=dvdfolder)
-	if var.get() == 2:
-		label4.configure(text="(DVD)")
 
 
 fstops = Spinbox(master, values=(
@@ -316,7 +290,7 @@ fstops = Spinbox(master, values=(
 'f/20',
 'f/22'
 ))
-#fstops.pack()
+
 fstops.grid(row=11, column=2)
 print "\ninitial value of fstops.get() =",fstops.get()
 
@@ -374,7 +348,7 @@ shutterspeed = Spinbox(master, values=(
 '0.0003s',
 '429496.7295s'
 ))
-#shutterspeed.pack()
+
 shutterspeed.grid(row=12, column=2)
 print "\ninitial value of fstops.get() =",fstops.get()
 
@@ -385,7 +359,7 @@ iso = Spinbox(master, values=(
 '400',
 '200'
 ))
-#iso.pack()
+
 iso.grid(row=13, column=2)
 print "\ninitial value of iso.get() =",iso.get()
 
